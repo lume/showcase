@@ -1,6 +1,6 @@
 import {Router} from '@solidjs/router'
 import {FileRoutes} from '@solidjs/start/router'
-import {createMemo, Suspense} from 'solid-js'
+import {createMemo, onMount, Suspense} from 'solid-js'
 import {useParams} from '@solidjs/router'
 import './app.css'
 import Scene from './components/Scene.js'
@@ -8,9 +8,11 @@ import './elements/Scroller.js'
 
 console.log('load app')
 
-if (globalThis.window?.document) await import('lume')
-
 export default function App() {
+	onMount(() => {
+		import('lume')
+	})
+
 	return (
 		<Router
 			root={props => {
