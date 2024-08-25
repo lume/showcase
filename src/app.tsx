@@ -4,6 +4,9 @@ import {createMemo, Suspense} from 'solid-js'
 import {useParams} from '@solidjs/router'
 import './app.css'
 import Scene from './components/Scene.js'
+import './elements/Scroller.js'
+
+console.log('load app')
 
 if (globalThis.window?.document) await import('lume')
 
@@ -37,6 +40,28 @@ export default function App() {
 						<Suspense>{props.children}</Suspense>
 
 						<Scene></Scene>
+
+						<div style="width: 400px; height: 250px; border: 1px solid cornflowerblue;">
+							<lume-scene webgl>
+								<lume-point-light intensity="800" position="200 0 200"></lume-point-light>
+
+								<lume-scroller size-mode="p p" size="1 1">
+									{Array.from({length: 10}).map((_, i) => (
+										<lume-box
+											receive-shadow="false"
+											color={`rgb(${[
+												Math.round(255 * Math.random()),
+												Math.round(255 * Math.random()),
+												Math.round(255 * Math.random()),
+											]})`}
+											// TODO better prop type for position
+											position={[0, i * 100, 0]}
+											size="100 100 100"
+										></lume-box>
+									))}
+								</lume-scroller>
+							</lume-scene>
+						</div>
 					</main>
 				)
 			}}

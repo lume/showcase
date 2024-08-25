@@ -1,6 +1,11 @@
 import {defineConfig} from '@solidjs/start/config'
 
 export default defineConfig({
+	solid: {
+		babel: {
+			plugins: [['@babel/plugin-proposal-decorators', {version: '2023-11'}]],
+		},
+	},
 	vite: {
 		// Ensure output code is as close to hand-written as possible
 		build: {target: 'esnext'},
