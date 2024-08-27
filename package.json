@@ -10,14 +10,18 @@
 	"dependencies": {
 		"@solidjs/router": "^0.14.1",
 		"@solidjs/start": "^1.0.6",
+		"classy-solid": "^0.3.7",
 		"lume": "^0.3.0-alpha.43",
 		"solid-js": "^1.8.18",
-		"vinxi": "^0.4.1"
+		"vinxi": "^0.4.1",
+		"yoga-layout": "^3.1.0"
 	},
 	"engines": {
 		"node": ">=18"
 	},
+	"// TODO include @types/three as dep of lume or else types are missing in consumers": "",
 	"devDependencies": {
+		"@babel/plugin-proposal-decorators": "^7.24.7",
 		"@types/three": "^0.167.2",
 		"prettier": "^3.3.3"
 	}
