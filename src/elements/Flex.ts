@@ -12,7 +12,9 @@ import {childLumeElements} from '../utils/childLumeElements.js'
 
 // Importing inside a conditional like this is a temporary workaround.
 // https://github.com/solidjs/solid-start/issues/1614
-if (globalThis.window?.document) {
+if (globalThis.window?.document) await defineElement()
+
+async function defineElement() {
 	const {default: html} = await import('solid-js/html')
 	const {Element3D, signal, stringAttribute, numberAttribute} = await import('lume')
 	const {element} = await import('@lume/element')
@@ -30,7 +32,7 @@ if (globalThis.window?.document) {
 	 *
 	 * - Default: The default slot for all children that will be laid out.
 	 */
-	@element('lume-flex', autoDefineElements)
+	return @element('lume-flex', autoDefineElements)
 	class Flex extends Element3D {
 		override readonly hasShadow = true
 
@@ -47,7 +49,11 @@ if (globalThis.window?.document) {
 		#container: Element3D | null = null
 		#paddingBox: Element3D | null = null
 
-		@signal yogaRoot: YogaNode | null = null
+		@signal private __yogaRoot: YogaNode | null = null
+
+		get yogaRoot() {
+			return this.__yogaRoot
+		}
 
 		override connectedCallback() {
 			super.connectedCallback()
@@ -64,7 +70,7 @@ if (globalThis.window?.document) {
 				const thisSizeX = createMemo(() => this.calculatedSize.x)
 				const paddingBoxSizeX = createMemo(() => this.#paddingBox!.calculatedSize.x)
 
-				const root = (this.yogaRoot = Yoga.Node.create())
+				const root = (this.__yogaRoot = Yoga.Node.create())
 				root.setFlexDirection(FlexDirection.Row)
 				root.setFlexWrap(Wrap.Wrap)
 
@@ -179,19 +185,24 @@ if (globalThis.window?.document) {
 	}
 }
 
-// declare module "solid-js" {
-//   namespace JSX {
-//     interface IntrinsicElements {
-//       "lume-flex": ElementAttributes<Flex, FlexAttributes>
-//     }
-//   }
-// }
+// Temporary hack type to get around the async defineElement() workaround
+// wrapper (see above).
+type FlexCtor = Awaited<ReturnType<typeof defineElement>>
+type Flex = InstanceType<FlexCtor>
 
-// declare global {
-//   interface HTMLElementTagNameMap {
-//     "lume-flex": Flex
-//   }
-// }
+declare module 'solid-js' {
+	namespace JSX {
+		interface IntrinsicElements {
+			'lume-flex': ElementAttributes<Flex, FlexAttributes>
+		}
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'lume-flex': Flex
+	}
+}
 
 export type FlexAttributes = Element3DAttributes | 'justifyContent' | 'gap'
 

@@ -108,8 +108,8 @@ export default function App() {
 											</lume-element3d>
 										</lume-flex>
 									</lume-element3d>
-									{Array.from({length: 10}).map(() => (
-										<lume-tilt-card size="300 300" />
+									{Array.from({length: 10}).map((_, i) => (
+										<lume-tilt-card size="300 300" i={i} />
 									))}
 								</lume-flex>
 							</lume-scroller>

@@ -14,7 +14,9 @@ const tiny = 0.000000000000000000001
 
 // Importing inside a conditional like this is a temporary hack to workaround a
 // Solid Start import issue: https://github.com/solidjs/solid-start/issues/1614
-if (globalThis.window?.document) {
+if (globalThis.window?.document) await defineElement()
+
+async function defineElement() {
 	const {default: html} = await import('solid-js/html')
 	const {Element3D, ScrollFling} = await import('lume')
 	const {element} = await import('@lume/element')
@@ -32,7 +34,7 @@ if (globalThis.window?.document) {
 	 *
 	 * - Default: The default slot is a catch-all for all children that will be scrolled.
 	 */
-	@element('lume-scroller', autoDefineElements)
+	return @element('lume-scroller', autoDefineElements)
 	class Scroller extends Element3D {
 		override readonly hasShadow = true
 
@@ -156,7 +158,9 @@ if (globalThis.window?.document) {
 				align-point="1 0"
 				mount-point="1 0"
 				position="0 0 0.2"
-			></lume-element3d>
+			>
+				<slot name="scrollknob"></slot>
+			</lume-element3d>
 		`
 
 		static override css = /*css*/ `
@@ -167,18 +171,23 @@ if (globalThis.window?.document) {
 	}
 }
 
-// declare module "solid-js" {
-//   namespace JSX {
-//     interface IntrinsicElements {
-//       "lume-scroller": ElementAttributes<Scroller, ScrollerAttributes>
-//     }
-//   }
-// }
+// Temporary hack type to get around the async defineElement() workaround
+// wrapper (see above).
+type ScrollerCtor = Awaited<ReturnType<typeof defineElement>>
+type Scroller = InstanceType<ScrollerCtor>
 
-// declare global {
-//   interface HTMLElementTagNameMap {
-//     "lume-scroller": Scroller
-//   }
-// }
+declare module 'solid-js' {
+	namespace JSX {
+		interface IntrinsicElements {
+			'lume-scroller': ElementAttributes<Scroller, ScrollerAttributes>
+		}
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'lume-scroller': Scroller
+	}
+}
 
 export type ScrollerAttributes = Element3DAttributes

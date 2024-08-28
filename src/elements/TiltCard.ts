@@ -6,9 +6,11 @@ import {clamp} from '../utils/clamp.js'
 
 // Importing inside a conditional like this is a temporary hack to workaround a
 // Solid Start import issue: https://github.com/solidjs/solid-start/issues/1614
-if (globalThis.window?.document) {
+if (globalThis.window?.document) await defineElement()
+
+async function defineElement() {
 	const {default: html} = await import('solid-js/html')
-	const {Element3D, Motor} = await import('lume')
+	const {Element3D, Motor, numberAttribute} = await import('lume')
 	const {element} = await import('@lume/element')
 	const {autoDefineElements} = await import('lume/dist/LumeConfig.js')
 
@@ -20,15 +22,11 @@ if (globalThis.window?.document) {
 	 *
 	 * A card with an image that rotates a bit when hovering with a pointer.
 	 */
-	@element('lume-tilt-card', autoDefineElements)
+	return @element('lume-tilt-card', autoDefineElements)
 	class TiltCard extends Element3D {
 		override readonly hasShadow = true
 
-		override connectedCallback() {
-			super.connectedCallback()
-
-			this.createEffect(() => {})
-		}
+		@numberAttribute i = 0
 
 		override template = () => {
 			let plane: Element3D
@@ -99,7 +97,7 @@ if (globalThis.window?.document) {
 					>
 						<a
 							style=""
-							href=${'/projects/' + (Math.random() > 0.5 ? 'foo' : 'bar')}
+							href=${'/projects/' + (this.i % 2 ? 'foo' : 'bar')}
 							oncontextmenu=${(e: Event) => e.preventDefault()}
 						></a>
 					</lume-texture-projector>
@@ -124,21 +122,26 @@ if (globalThis.window?.document) {
 	}
 }
 
-// declare module "solid-js" {
-//   namespace JSX {
-//     interface IntrinsicElements {
-//       "lume-tilt-card": ElementAttributes<TiltCard, TiltCardAttributes>
-//     }
-//   }
-// }
+// Temporary hack type to get around the async defineElement() workaround
+// wrapper (see above).
+type TiltCardCtor = Awaited<ReturnType<typeof defineElement>>
+type TiltCard = InstanceType<TiltCardCtor>
 
-// declare global {
-//   interface HTMLElementTagNameMap {
-//     "lume-tilt-card": TiltCard
-//   }
-// }
+declare module 'solid-js' {
+	namespace JSX {
+		interface IntrinsicElements {
+			'lume-tilt-card': ElementAttributes<TiltCard, TiltCardAttributes>
+		}
+	}
+}
 
-export type TiltCardAttributes = Element3DAttributes
+declare global {
+	interface HTMLElementTagNameMap {
+		'lume-tilt-card': TiltCard
+	}
+}
+
+export type TiltCardAttributes = Element3DAttributes | 'i'
 
 function getLume() {
 	const [lume, setLume] = createSignal<typeof import('lume')>()
