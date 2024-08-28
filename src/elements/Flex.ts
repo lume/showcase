@@ -51,6 +51,7 @@ async function defineElement() {
 
 		@signal private __yogaRoot: YogaNode | null = null
 
+		/** The Yoga root Node exposed, in case custom modifications are desired. */
 		get yogaRoot() {
 			return this.__yogaRoot
 		}
