@@ -114,6 +114,7 @@ export default function App() {
 								</lume-flex>
 							</lume-scroller>
 						</lume-scene>
+						<style innerHTML={style()}></style>
 					</main>
 				)
 			}}
@@ -121,10 +122,41 @@ export default function App() {
 			<FileRoutes />
 		</Router>
 	)
+
+	function style() {
+		return /*css*/ `
+            lume-scroller {
+                /*
+                 * Weird workaround due to pointer events working differently
+                 * across browsers CSS 3D. Let's just say CSS 3D (in all major
+                 * browsers today) is the worst 3D engine in the history of
+                 * human computing.
+                 */
+                ${detectBrowser() === 'firefox' ? 'pointer-events: none;' : ''}
+                * { ${detectBrowser() === 'firefox' ? 'pointer-events: none;' : ''} }
+                lume-tilt-card {
+                    pointer-events: auto;
+                }
+                /* uncomment this to debug the issue, to visualize the CSS planes (which are invisible in Safari for some reason!) */
+                /*lume-element3d, lume-tilt-card::part(root) {
+                    background: rgb(255 255 255 / 0.8);
+                }*/
+            }
+        `
+	}
 }
 
 function getLume() {
 	const [lume, setLume] = createSignal<typeof import('lume')>()
 	import('lume').then(setLume)
 	return lume
+}
+
+function detectBrowser(): 'chrome' | 'safari' | 'firefox' {
+	// The order of these checks matters!
+	if (navigator.userAgent.includes('Edg/')) return 'chrome' // for now, no need to differentiate Chrome from Edge, maybe later...
+	if (navigator.userAgent.includes('Chrome/')) return 'chrome'
+	if (navigator.userAgent.includes('Safari/')) return 'safari'
+	if (navigator.userAgent.includes('Firefox/')) return 'firefox'
+	return 'chrome'
 }

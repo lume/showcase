@@ -164,6 +164,8 @@ async function defineElement() {
 		`
 
 		static override css = /*css*/ `
+			${Element3D.css}
+
 			#scrollknob {
 				background: rgba(0, 0, 0, 0.2);
 			}

@@ -182,6 +182,7 @@ async function defineElement() {
 		`
 
 		static override css = /*css*/ `
+			${Element3D.css}
 		`
 	}
 }

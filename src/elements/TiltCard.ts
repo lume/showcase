@@ -1,4 +1,4 @@
-import {createMemo, createSignal, onCleanup, onMount} from 'solid-js'
+import {batch, createMemo, createSignal, onCleanup, onMount} from 'solid-js'
 import type {ElementAttributes} from '@lume/element'
 import type {Element3DAttributes, Element3D, TextureProjector} from 'lume'
 import {createMutable} from 'solid-js/store'
@@ -31,13 +31,17 @@ async function defineElement() {
 		override template = () => {
 			let plane: Element3D
 
-			const state = createMutable({pointer: {x: 300 / 2, y: 300 / 2}})
+			const state = createMutable({
+				pointer: {x: 300 / 2, y: 300 / 2},
+				over: false,
+			})
 
 			onMount(() => {
 				const rotationAmount = 12
 
 				let targetRotationX = 0
 				let targetRotationY = 0
+				let targetPositionZ = 0
 
 				const task = Motor.addRenderTask(time => {
 					targetRotationX = clamp(
@@ -51,8 +55,11 @@ async function defineElement() {
 						rotationAmount / 2,
 					)
 
+					targetPositionZ = state.over ? 40 : 0
+
 					plane.rotation.y += (targetRotationY - plane.rotation.y) * 0.2
 					plane.rotation.x += (targetRotationX - plane.rotation.x) * 0.2
+					plane.position.z += (targetPositionZ - plane.position.z) * 0.2
 				})
 
 				onCleanup(() => Motor.removeRenderTask(task))
@@ -63,6 +70,7 @@ async function defineElement() {
 
 			return html`
 				<lume-rounded-rectangle
+					part="root"
 					ref=${(e: Element3D) => (plane = e)}
 					corner-radius="20"
 					thickness="5"
@@ -75,18 +83,27 @@ async function defineElement() {
 					clearcoat="0"
 					clearcoat-roughness="0.4"
 					metalness="0"
+					onpointerenter=${(e: PointerEvent) => {
+						state.over = true
+					}}
 					onpointermove=${(e: PointerEvent) => {
-						state.pointer.x = e.offsetX
-						state.pointer.y = e.offsetY
+						batch(() => {
+							state.pointer.x = e.offsetX
+							state.pointer.y = e.offsetY
+						})
 					}}
 					onpointerleave=${(e: PointerEvent) => {
-						state.pointer.x = 150
-						state.pointer.y = 150
+						batch(() => {
+							state.over = false
+							state.pointer.x = 150
+							state.pointer.y = 150
+						})
 					}}
 					ondragstart=${(e: DragEvent) => e.preventDefault()}
 				>
 					<!-- FIXME without the timeout it breaks -->
 					<lume-texture-projector
+						part="projector"
 						ref=${(e: TextureProjector) => setTimeout(() => setProjector(e))}
 						size-mode="p p"
 						size="1.01 1.01"
@@ -110,7 +127,13 @@ async function defineElement() {
 			`
 		}
 
-		override css = /*css*/ `
+		static override css = /*css*/ `
+			${Element3D.css}
+
+			lume-rounded-rectangle {
+				border-radius: 20px;
+			}
+
 			a {
 				display: block;
 				width: 100%;
