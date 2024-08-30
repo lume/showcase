@@ -1,14 +1,19 @@
-// TODO we need to be able to easily calculate the min/max X/Y position of
-// elements, taking into account both regular position as well as mount point
-// and align point. Perhaps all elements can have a calculatedPosition, similar
-// to calculatedSize, that gives us absolute X/Y/Z relative to a parent taking
-// into account mount/align points.
-
 import {createEffect, createMemo, createSignal, onCleanup} from 'solid-js'
 import type {ElementAttributes} from '@lume/element'
 import type {Element3DAttributes, Element3D} from 'lume'
 import type {Node as YogaNode} from 'yoga-layout'
-import {childLumeElements} from '../utils/childLumeElements.js'
+import {slottedLumeElements} from '../utils/slottedLumeElements.js'
+
+export type FlexAttributes =
+	| Element3DAttributes
+	| 'justifyContent'
+	| 'gap'
+	| 'direction'
+	| 'alignItems'
+	| 'padding'
+	| 'skip'
+
+export type FlexItemAttributes = Element3DAttributes | 'skip'
 
 // Importing inside a conditional like this is a temporary workaround.
 // https://github.com/solidjs/solid-start/issues/1614
@@ -16,9 +21,19 @@ if (globalThis.window?.document) await defineElement()
 
 async function defineElement() {
 	const {default: html} = await import('solid-js/html')
-	const {Element3D, signal, stringAttribute, numberAttribute} = await import('lume')
+	const {Element3D, signal, stringAttribute, numberAttribute, booleanAttribute} = await import('lume')
 	const {element} = await import('@lume/element')
 	const {autoDefineElements} = await import('lume/dist/LumeConfig.js')
+	const {
+		default: Yoga,
+		Direction,
+		FlexDirection,
+		Gutter,
+		Wrap,
+		Edge,
+		Justify,
+		Align,
+	} = (await import('https://unpkg.com/yoga-layout@3.1.0/dist/src/index.js')) as typeof import('yoga-layout')
 
 	/**
 	 * @extends Element3D
@@ -32,21 +47,28 @@ async function defineElement() {
 	 *
 	 * - Default: The default slot for all children that will be laid out.
 	 */
-	return @element('lume-flex', autoDefineElements)
+	@element('lume-flex', autoDefineElements)
 	class Flex extends Element3D {
 		override readonly hasShadow = true
 
-		@stringAttribute justifyContent:
-			| 'center'
-			| 'flex-end'
-			| 'flex-start'
-			| 'space-around'
-			| 'space-between'
-			| 'space-evenly' = 'flex-start'
+		@stringAttribute direction: 'row' | 'column' | 'row-reverse' | 'column-reverse' = 'row'
+
+		@stringAttribute alignItems: 'baseline' | 'center' | 'end' | 'start' | 'stretch' = 'start'
+
+		@stringAttribute justifyContent: 'center' | 'end' | 'space-around' | 'space-between' | 'space-evenly' | 'start' =
+			'start'
+
+		@numberAttribute padding = 0
 
 		@numberAttribute gap = 0
 
-		#container: Element3D | null = null
+		/**
+		 * When true, this element will be skipped from being laid out by a
+		 * parent <lume-flex> element, instead positioned as usual as if its
+		 * parent were a <lume-element3d>.
+		 */
+		@booleanAttribute skip = false
+
 		#paddingBox: Element3D | null = null
 
 		@signal private __yogaRoot: YogaNode | null = null
@@ -59,27 +81,24 @@ async function defineElement() {
 		override connectedCallback() {
 			super.connectedCallback()
 
-			const yoga = getYoga()
+			const slot = this.shadowRoot!.querySelector('slot')!
 
 			this.createEffect(() => {
-				const yogaModule = yoga()
-				if (!yogaModule) return
-				const {default: Yoga, Direction, FlexDirection, Gutter, Wrap, Edge, Justify} = yogaModule
+				const elements = slottedLumeElements(slot)
+				const isFlex = (el: Element) => el instanceof FlexItem || el instanceof Flex
+				const children = createMemo(() => elements().filter(el => (isFlex(el) && el.skip ? false : true)))
 
-				const {elements: children} = childLumeElements(this)
-				const padding = 40
 				const thisSizeX = createMemo(() => this.calculatedSize.x)
 				const paddingBoxSizeX = createMemo(() => this.#paddingBox!.calculatedSize.x)
 
 				const root = (this.__yogaRoot = Yoga.Node.create())
-				root.setFlexDirection(FlexDirection.Row)
 				root.setFlexWrap(Wrap.Wrap)
 
 				// root.setPadding(Edge.All, padding)
 				createEffect(() => {
-					this.#paddingBox!.size.x = Math.max(0, thisSizeX() - padding * 2)
-					this.#paddingBox!.position.x = padding
-					this.#paddingBox!.position.y = padding
+					this.#paddingBox!.size.x = Math.max(0, thisSizeX() - this.padding * 2)
+					this.#paddingBox!.position.x = this.padding
+					this.#paddingBox!.position.y = this.padding
 				})
 
 				root.setGap(Gutter.All, 40)
@@ -112,26 +131,45 @@ async function defineElement() {
 					})
 
 					createEffect(() => {
+						let alignItems
+						// prettier-ignore
+						switch (this.alignItems) {
+							case 'baseline': alignItems = Align.Baseline; break
+							case 'center': alignItems = Align.Center; break
+							case 'end': alignItems = Align.FlexEnd; break
+							case 'start': alignItems = Align.FlexStart; break
+							case 'stretch': alignItems = Align.Stretch; break
+						}
+
+						if (this.id === 'projectContent') console.log('align-items:', this.alignItems, Align[alignItems])
+						root.setAlignItems(alignItems)
+						updateLayout()
+					})
+
+					createEffect(() => {
+						let direction
+						// prettier-ignore
+						switch (this.direction) {
+							case 'row': direction = FlexDirection.Row; break
+							case 'column': direction = FlexDirection.Column; break
+							case 'row-reverse': direction = FlexDirection.RowReverse; break
+							case 'column-reverse': direction = FlexDirection.ColumnReverse; break
+						}
+
+						root.setFlexDirection(direction)
+						updateLayout()
+					})
+
+					createEffect(() => {
 						let justify
+						// prettier-ignore
 						switch (this.justifyContent) {
-							case 'center':
-								justify = Justify.Center
-								break
-							case 'flex-end':
-								justify = Justify.FlexEnd
-								break
-							case 'flex-start':
-								justify = Justify.FlexStart
-								break
-							case 'space-around':
-								justify = Justify.SpaceAround
-								break
-							case 'space-between':
-								justify = Justify.SpaceBetween
-								break
-							case 'space-evenly':
-								justify = Justify.SpaceEvenly
-								break
+							case 'center': justify = Justify.Center; break
+							case 'end': justify = Justify.FlexEnd; break
+							case 'start': justify = Justify.FlexStart; break
+							case 'space-around': justify = Justify.SpaceAround; break
+							case 'space-between': justify = Justify.SpaceBetween; break
+							case 'space-evenly': justify = Justify.SpaceEvenly; break
 						}
 
 						root.setJustifyContent(justify)
@@ -147,7 +185,7 @@ async function defineElement() {
 						layoutUpdated()
 
 						this.#paddingBox!.size.y = Math.max(0, root.getComputedHeight())
-						this.size.y = Math.max(0, root.getComputedHeight() + padding * 2)
+						this.size.y = Math.max(0, root.getComputedHeight() + this.padding * 2)
 					})
 
 					function updateLayout() {
@@ -174,23 +212,52 @@ async function defineElement() {
 		}
 
 		override template = () => html`
-			<lume-element3d id="#container" size-mode="p p" size="1 1" ref=${(e: Element3D) => (this.#container = e)}>
+			<lume-element3d id="#container" size-mode="p p" size="1 1">
 				<lume-element3d ref=${(e: Element3D) => (this.#paddingBox = e)}>
 					<slot></slot>
 				</lume-element3d>
 			</lume-element3d>
+
+			<slot name="passthrough"></slot>
 		`
 
 		static override css = /*css*/ `
 			${Element3D.css}
 		`
 	}
+
+	/**
+	 * @extends Element3D
+	 * @class FlexItem -
+	 *
+	 * Element: `<lume-flex-item>`
+	 *
+	 * An element to use as child of a `<lume-flex>` element when child
+	 * options are to be given. Children of `<lume-flex>` do not need to be
+	 * `<lume-flex-item>`, but in that case options for each child cannot be
+	 * given and defaults will be used.
+	 */
+	@element('lume-flex-item', autoDefineElements)
+	class FlexItem extends Element3D {
+		/**
+		 * When true, this element will be skipped from being laid out by a
+		 * parent <lume-flex> element, instead positioned as usual as if its
+		 * parent were a <lume-element3d>.
+		 */
+		@booleanAttribute skip = false
+
+		override connectedCallback() {
+			super.connectedCallback()
+		}
+	}
+
+	return [Flex, FlexItem] as const
 }
 
 // Temporary hack type to get around the async defineElement() workaround
 // wrapper (see above).
-type FlexCtor = Awaited<ReturnType<typeof defineElement>>
-type Flex = InstanceType<FlexCtor>
+type FlexCtor = Awaited<ReturnType<typeof defineElement>>[0]
+export type Flex = InstanceType<FlexCtor>
 
 declare module 'solid-js' {
 	namespace JSX {
@@ -206,11 +273,21 @@ declare global {
 	}
 }
 
-export type FlexAttributes = Element3DAttributes | 'justifyContent' | 'gap'
+// Temporary hack type to get around the async defineElement() workaround
+// wrapper (see above).
+type FlexItemCtor = Awaited<ReturnType<typeof defineElement>>[1]
+export type FlexItem = InstanceType<FlexItemCtor>
 
-function getYoga() {
-	const [yoga, setYoga] = createSignal<typeof import('yoga-layout')>()
-	const promise = eval("import('https://unpkg.com/yoga-layout@3.1.0/dist/src/index.js')")
-	promise.then(setYoga)
-	return yoga
+declare module 'solid-js' {
+	namespace JSX {
+		interface IntrinsicElements {
+			'lume-flex-item': ElementAttributes<FlexItem, FlexItemAttributes>
+		}
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'lume-flex-item': FlexItem
+	}
 }

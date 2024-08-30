@@ -4,13 +4,15 @@ import type {Element3DAttributes, Element3D, TextureProjector} from 'lume'
 import {createMutable} from 'solid-js/store'
 import {clamp} from '../utils/clamp.js'
 
+export type TiltCardAttributes = Element3DAttributes | 'image'
+
 // Importing inside a conditional like this is a temporary hack to workaround a
 // Solid Start import issue: https://github.com/solidjs/solid-start/issues/1614
 if (globalThis.window?.document) await defineElement()
 
 async function defineElement() {
 	const {default: html} = await import('solid-js/html')
-	const {Element3D, Motor, numberAttribute} = await import('lume')
+	const {Element3D, Motor, stringAttribute, numberAttribute, booleanAttribute} = await import('lume')
 	const {element} = await import('@lume/element')
 	const {autoDefineElements} = await import('lume/dist/LumeConfig.js')
 
@@ -26,7 +28,10 @@ async function defineElement() {
 	class TiltCard extends Element3D {
 		override readonly hasShadow = true
 
-		@numberAttribute i = 0
+		@numberAttribute rotationAmount = 12
+		@stringAttribute image = ''
+		@booleanAttribute castShadow = true
+		@booleanAttribute receiveShadow = true
 
 		override template = () => {
 			let plane: Element3D
@@ -37,8 +42,7 @@ async function defineElement() {
 			})
 
 			onMount(() => {
-				const rotationAmount = 12
-
+				const rotationAmount = this.rotationAmount
 				let targetRotationX = 0
 				let targetRotationY = 0
 				let targetPositionZ = 0
@@ -83,10 +87,14 @@ async function defineElement() {
 					clearcoat="0"
 					clearcoat-roughness="0.4"
 					metalness="0"
+					comment="Come up with a way to not have to re-create all these properties, so they can be passed-through."
+					opacity=${() => this.opacity}
+					cast-shadow=${() => this.castShadow}
+					receive-shadow=${() => this.receiveShadow}
 					onpointerenter=${(e: PointerEvent) => {
 						state.over = true
 					}}
-					onpointermove=${(e: PointerEvent) => {
+					oncapture:pointermove=${(e: PointerEvent) => {
 						batch(() => {
 							state.pointer.x = e.offsetX
 							state.pointer.y = e.offsetY
@@ -110,13 +118,9 @@ async function defineElement() {
 						mount-point="0.5 0.5"
 						align-point="0.5 0.5"
 						fitment="cover"
-						src="/content/neofairies/Neo_Fairies_Ears_001.gif"
+						src=${() => this.image}
 					>
-						<a
-							style=""
-							href=${'/projects/' + (this.i % 2 ? 'foo' : 'bar')}
-							oncontextmenu=${(e: Event) => e.preventDefault()}
-						></a>
+						<slot></slot>
 					</lume-texture-projector>
 					<!--
 					<lume-point-light align-point="0.2 0.2" cast-shadow="false" color="orange" intensity="50" position="0 0 10">
@@ -133,14 +137,6 @@ async function defineElement() {
 			lume-rounded-rectangle {
 				border-radius: 20px;
 			}
-
-			a {
-				display: block;
-				width: 100%;
-				height: 100%;
-				-webkit-tap-highlight-color: transparent;
-				user-select: none;
-			}
 		`
 	}
 }
@@ -148,7 +144,7 @@ async function defineElement() {
 // Temporary hack type to get around the async defineElement() workaround
 // wrapper (see above).
 type TiltCardCtor = Awaited<ReturnType<typeof defineElement>>
-type TiltCard = InstanceType<TiltCardCtor>
+export type TiltCard = InstanceType<TiltCardCtor>
 
 declare module 'solid-js' {
 	namespace JSX {
@@ -163,8 +159,6 @@ declare global {
 		'lume-tilt-card': TiltCard
 	}
 }
-
-export type TiltCardAttributes = Element3DAttributes | 'i'
 
 function getLume() {
 	const [lume, setLume] = createSignal<typeof import('lume')>()

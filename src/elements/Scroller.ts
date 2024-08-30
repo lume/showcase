@@ -7,8 +7,9 @@
 import {createEffect, createMemo, onCleanup, untrack} from 'solid-js'
 import type {ElementAttributes} from '@lume/element'
 import type {Element3DAttributes, Element3D} from 'lume'
-import {slottedLumeElements} from '../utils/slotteLumeElements.js'
+import {slottedLumeElements} from '../utils/slottedLumeElements.js'
 import {DragFling} from '../interaction/DragFling.js'
+export type ScrollerAttributes = Element3DAttributes
 
 const tiny = 0.000000000000000000001
 
@@ -48,13 +49,13 @@ async function defineElement() {
 			let amountScrolled = 0
 
 			this.createEffect(() => {
-				const {elements: slottedChildren} = slottedLumeElements(this.#scrollContainer!.children[0] as HTMLSlotElement)
+				const children = slottedLumeElements(this.#scrollContainer!.children[0] as HTMLSlotElement)
 
 				const contentHeight = createMemo(() => {
 					let height = 0
 					// `child.calculatedSize`s are dependencies
 					// TODO Look at the bounding box of the content, rather than blindly adding sizes of children.
-					for (const child of slottedChildren()) height += child.calculatedSize.y
+					for (const child of children()) height += child.calculatedSize.y
 					return height
 				}, 0)
 
@@ -176,7 +177,7 @@ async function defineElement() {
 // Temporary hack type to get around the async defineElement() workaround
 // wrapper (see above).
 type ScrollerCtor = Awaited<ReturnType<typeof defineElement>>
-type Scroller = InstanceType<ScrollerCtor>
+export type Scroller = InstanceType<ScrollerCtor>
 
 declare module 'solid-js' {
 	namespace JSX {
@@ -191,5 +192,3 @@ declare global {
 		'lume-scroller': Scroller
 	}
 }
-
-export type ScrollerAttributes = Element3DAttributes
