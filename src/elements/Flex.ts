@@ -4,6 +4,9 @@ import type {Element3DAttributes, Element3D} from 'lume'
 import type {Node as YogaNode} from 'yoga-layout'
 import {slottedLumeElements} from '../utils/slottedLumeElements.js'
 
+// This is not working, so we import it inside defineElement
+// import Yoga, {Direction, FlexDirection, Gutter, Wrap, Edge, Justify, Align} from 'yoga-layout'
+
 export type FlexAttributes =
 	| Element3DAttributes
 	| 'justifyContent'
@@ -34,6 +37,27 @@ async function defineElement() {
 		Justify,
 		Align,
 	} = (await import('https://unpkg.com/yoga-layout@3.1.0/dist/src/index.js')) as typeof import('yoga-layout')
+
+	/**
+	 * @extends Element3D
+	 * @class FlexItem -
+	 *
+	 * Element: `<lume-flex-item>`
+	 *
+	 * An element to use as child of a `<lume-flex>` element when child
+	 * options are to be given. Children of `<lume-flex>` do not need to be
+	 * `<lume-flex-item>`, but in that case options for each child cannot be
+	 * given and defaults will be used.
+	 */
+	@element('lume-flex-item', autoDefineElements)
+	class FlexItem extends Element3D {
+		/**
+		 * When true, this element will be skipped from being laid out by a
+		 * parent <lume-flex> element, instead positioned as usual as if its
+		 * parent were a <lume-element3d>.
+		 */
+		@booleanAttribute skip = false
+	}
 
 	/**
 	 * @extends Element3D
@@ -224,31 +248,6 @@ async function defineElement() {
 		static override css = /*css*/ `
 			${Element3D.css}
 		`
-	}
-
-	/**
-	 * @extends Element3D
-	 * @class FlexItem -
-	 *
-	 * Element: `<lume-flex-item>`
-	 *
-	 * An element to use as child of a `<lume-flex>` element when child
-	 * options are to be given. Children of `<lume-flex>` do not need to be
-	 * `<lume-flex-item>`, but in that case options for each child cannot be
-	 * given and defaults will be used.
-	 */
-	@element('lume-flex-item', autoDefineElements)
-	class FlexItem extends Element3D {
-		/**
-		 * When true, this element will be skipped from being laid out by a
-		 * parent <lume-flex> element, instead positioned as usual as if its
-		 * parent were a <lume-element3d>.
-		 */
-		@booleanAttribute skip = false
-
-		override connectedCallback() {
-			super.connectedCallback()
-		}
 	}
 
 	return [Flex, FlexItem] as const

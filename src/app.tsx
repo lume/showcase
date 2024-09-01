@@ -14,68 +14,146 @@ import {childLumeElements} from './utils/childLumeElements.js'
 
 if (globalThis.window?.document) await import('lume')
 
-const projects = [
-	{name: 'Uthana', slug: 'uthana', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Neo Fairies', slug: 'neofairies', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Bar', slug: 'bar', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Bar', slug: 'bar', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
-	{name: 'Foo', slug: 'foo', image: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
+interface ProjectItem {
+	type: 'image' | 'paragraph'
+	content: string
+}
+
+type ProjectContent = ProjectItem[]
+
+interface Project {
+	name: string
+	slug: string
+	image: string
+	content: ProjectContent
+}
+
+type Projects = Project[]
+
+const projects: Projects = [
+	{
+		name: 'Uthana',
+		slug: 'uthana',
+		image: '/content/uthana/uthana-characters-thumb.jpg',
+		content: [
+			{
+				type: 'paragraph',
+				content: `
+					Uthana generates motion from prompts...
+				`,
+			},
+			{type: 'image', content: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
+			{
+				type: 'paragraph',
+				content: `
+					Saves developers time...
+				`,
+			},
+		],
+	},
+	{
+		name: 'Neo Fairies',
+		slug: 'neofairies',
+		image: '/content/neofairies/fairies-come-out.jpeg',
+		content: [
+			{
+				type: 'paragraph',
+				content: `
+					I worked on Neo Fairies......
+				`,
+			},
+			{type: 'image', content: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
+			{
+				type: 'paragraph',
+				content: `
+					Editing a character....
+				`,
+			},
+		],
+	},
+	{
+		name: 'Globus',
+		slug: 'globus',
+		image: '/content/globus/globus-globe.jpg',
+		content: [
+			{
+				type: 'paragraph',
+				content: `
+					Globus is a music app....
+				`,
+			},
+			{type: 'image', content: '/content/neofairies/Neo_Fairies_Ears_001.gif'},
+			{
+				type: 'paragraph',
+				content: `
+					Audio visuals.....
+				`,
+			},
+		],
+	},
 ]
 
 export default function App() {
 	return (
 		<Router
 			root={props => {
-				const params = useParams<Params>()
 				const [titleBox, setTitleBox] = createSignal<Element3D>()
-				const titleBoxSizeY = createMemo(() => titleBox()?.calculatedSize.y ?? 1)
+				const [contentRotator, setContentRotator] = createSignal<Element3D>()
 				const [header, setHeader] = createSignal<HTMLHeadingElement>()
-				const {clientWidth: headerWidth, clientHeight: headerHeight} = elementSize(header)
 				const [cards, setCards] = createSignal<TiltCard[]>([])
+				const [projectContent, setProjectContent] = createSignal<Flex>()
+
+				const routeParams = useParams<Params>()
+
+				const titleBoxSizeY = createMemo(() => titleBox()?.calculatedSize.y ?? 1)
+				const {clientWidth: headerWidth, clientHeight: headerHeight} = elementSize(header)
 
 				// TODO dynamic values based on the initial route
 				// TODO better name for showCards (hinge between both views)
 				const [showCards, setShowCards] = createSignal(true)
 
-				const transitionCardsOut = createMemo(() => !!params.project)
-				const [projectContent, setProjectContent] = createSignal<Flex>()
+				const transitionCardsOut = createMemo(() => !!routeParams.project)
 				const projectItems = childLumeElements(projectContent)
 				const transitionProjectItemsIn = createMemo(() => !showCards())
 
+				const selectedProject = createMemo(() =>
+					routeParams.project ? projects.find(p => p.slug === routeParams.project) : null,
+				)
+
 				const state = createMutable({
-					targetPosition: {x: (globalThis.window?.innerWidth ?? 1) / 2, y: (globalThis.window?.innerHeight ?? 1) / 2},
+					pointer: {x: (globalThis.window?.innerWidth ?? 1) / 2, y: (globalThis.window?.innerHeight ?? 1) / 2},
 				})
+
+				const dark = false
 
 				// onMount -> client only
 				onMount(() => {
 					const lume = getLume()
+
+					document.body.style.setProperty('--font-base-color', dark ? '#eee' : '#444')
 
 					createEffect(() => {
 						if (!lume()) return
 
 						const {Motor} = lume()!
 						const light = document.querySelector('#light') as PointLight
+						const rotator = contentRotator()!
 
 						const task = Motor.addRenderTask(time => {
-							light.position.x += (state.targetPosition.x - light.position.x) * 0.05
-							light.position.y += (state.targetPosition.y - light.position.y) * 0.05
+							light.position.x += (state.pointer.x - light.position.x) * 0.05
+							light.position.y += (state.pointer.y - light.position.y) * 0.05
+
+							const rotationAmount = 10
+							const targetRotationX = -((state.pointer.y / window.innerHeight) * rotationAmount - rotationAmount / 2)
+							const targetRotationY = +((state.pointer.x / window.innerWidth) * rotationAmount - rotationAmount / 2)
+							rotator.rotation.x += (targetRotationX - rotator.rotation.x) * 0.05
+							rotator.rotation.y += (targetRotationY - rotator.rotation.y) * 0.05
 						})
 
 						onCleanup(() => Motor.removeRenderTask(task))
 
 						createEffect(() => {
-							const stagger = 50
+							const stagger = 150
 							const _cards = cards()
 							if (!_cards.length) return
 
@@ -147,8 +225,8 @@ export default function App() {
 							style="position: absolute; left: 0; top: 0;"
 							onpointermove={e => {
 								e.preventDefault()
-								state.targetPosition.x = e.clientX
-								state.targetPosition.y = e.clientY
+								state.pointer.x = e.clientX
+								state.pointer.y = e.clientY
 							}}
 						>
 							<lume-ambient-light intensity="1.5"></lume-ambient-light>
@@ -162,36 +240,47 @@ export default function App() {
 								shadow-radius="10"
 							></lume-point-light>
 
-							<lume-plane
+							<lume-scroller
 								size-mode="p p"
-								size="1.2 1.2"
-								align-point="0.5 0.5"
-								mount-point="0.5 0.5"
-								position="0 0 -30"
-							></lume-plane>
+								size="1 1"
+								ref={e => {
+									setTimeout(() => {
+										const scrollRoot = e.shadowRoot!.querySelector('#scrollarea') as Element3D
+										setContentRotator(scrollRoot)
+									})
+								}}
+							>
+								{/* background plane for receiving shadows. Placed relative to the scrollarea, but skipped from affecting the calculated scroll area, its a visual only. */}
+								<lume-scroll-item
+									skip="true"
+									slot="scrollarea"
+									size-mode="p p"
+									size="1.5 1.5"
+									align-point="0.5 0.5"
+									mount-point="0.5 0.5"
+									position="0 0 -30"
+								>
+									{dark ? (
+										<lume-sphere
+											align-point="0.5 0.5"
+											mount-point="0.5 0.5"
+											size="10000"
+											texture="https://docs.lume.io/examples/hello-world/galaxy_starfield.png"
+											sidedness="double"
+										></lume-sphere>
+									) : (
+										<lume-plane visible="true" size-mode="p p" size="1 1"></lume-plane>
+									)}
+								</lume-scroll-item>
 
-							<lume-scroller size-mode="p p" size="1 1">
-								<lume-flex size-mode="p l" size="1 1" justify-content="center" gap="40" padding="40">
-									<lume-element3d
-										id="header"
-										corner-radius="20"
-										thickness="5"
-										quadratic-corners="false"
-										size-mode="p l"
-										size={[1, titleBoxSizeY(), 0]}
-										xhas="projected-material"
-										roughness="0.4"
-										clearcoat="0"
-										clearcoat-roughness="0.4"
-										metalness="0"
-										color="pink"
-									>
-										<lume-flex ref={setTitleBox} size-mode="p l" size="1 1" justify-content="center" gap="2">
+								<lume-flex size-mode="p l" size="1 1" justify-content="center" gap="60" padding="40">
+									<lume-element3d id="header" size-mode="p l" size={[1, titleBoxSizeY(), 0]}>
+										<lume-flex ref={setTitleBox} size-mode="p l" size="1 1" justify-content="center">
 											<lume-element3d size={[headerWidth(), headerHeight()]}>
 												<h1 ref={setHeader} style="display: block; width: max-content; margin: 0; user-select: text;">
-													{params.project
-														? `Project: ${projects.find(p => p.slug === params.project)!.name}`
-														: params['404']
+													{routeParams.project
+														? `Project: ${projects.find(p => p.slug === routeParams.project)!.name}`
+														: routeParams['404']
 															? 'Page Not Found'
 															: 'Showcase'}
 												</h1>
@@ -201,9 +290,27 @@ export default function App() {
 
 									{setCards(
 										projects.map(({name, slug, image}, i) => (
-											<lume-flex-item size="300 300" skip={showCards() ? false : true}>
+											<lume-flex-item
+												size="300 300"
+												skip={showCards() ? false : true}
+												position={showCards() ? [0, 0, 0] : [-100000, 0, 0]}
+											>
 												<lume-tilt-card size="300 300" image={image}>
 													<a style="" href={'/projects/' + slug} oncontextmenu={(e: Event) => e.preventDefault()}></a>
+
+													<lume-element3d align-point="0 1" mount-point="0 1" position="10 -10">
+														<div
+															ref={e => {
+																const size = elementSize(e)
+																const parent = e.parentElement as Element3D
+																createEffect(
+																	() => ((parent.size.x = size.clientWidth()), (parent.size.y = size.clientHeight())),
+																)
+															}}
+														>
+															{name}
+														</div>
+													</lume-element3d>
 												</lume-tilt-card>
 											</lume-flex-item>
 										)) as TiltCard[],
@@ -217,54 +324,35 @@ export default function App() {
 										justify-content="center"
 										gap="40"
 										skip={showCards() ? true : false}
-										visible={showCards() ? false : true}
+										position={showCards() ? [-100000, 0, 0] : [0, 0, 0]}
 									>
-										<lume-element3d size-mode="p l" size="1 300">
-											<p
-												ref={e => {
-													const size = elementSize(e)
-													const parent = e.parentElement as Element3D
-													createEffect(() => (parent.size.y = size.clientHeight()))
-												}}
-											>
-												Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris ac rhoncus neque. Etiam quis
-												orci eros. Maecenas vitae ex ut massa accumsan viverra a et lectus. Donec aliquet augue erat,
-												nec gravida ligula dignissim vitae. Aenean bibendum, elit at auctor sodales, erat leo semper
-												libero, rutrum mattis tellus lectus a dolor. In metus sapien, maximus vitae enim at, molestie
-												ornare orci. Sed blandit pulvinar pretium. Duis a urna suscipit, convallis nulla vitae, pretium
-												lectus.
-											</p>
-										</lume-element3d>
-										<lume-tilt-card
-											size-mode="p l"
-											size="1 300"
-											image="/content/neofairies/Neo_Fairies_Ears_001.gif"
-											rotation-amount="0"
-										></lume-tilt-card>
-										<lume-element3d size-mode="p l" size="1 300">
-											<p
-												ref={e => {
-													const size = elementSize(e)
-													const parent = e.parentElement as Element3D
-													createEffect(() => (parent.size.y = size.clientHeight()))
-												}}
-											>
-												Ut sed eros pretium, ornare purus vitae, placerat sapien. Nullam viverra nisi dolor, non
-												vulputate libero mattis in. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec
-												convallis venenatis odio, in dapibus odio consequat vitae. Donec accumsan, odio id mollis
-												tristique, nisl urna accumsan velit, sed commodo velit mi a quam. Aliquam pellentesque enim est,
-												in blandit lorem iaculis vitae. In vel felis tincidunt, dignissim augue id, bibendum velit.
-												Quisque tristique ipsum vitae ante iaculis varius. Morbi ut felis mattis, auctor magna vitae,
-												vestibulum ante. Suspendisse dictum metus vel eleifend viverra. Vestibulum tempus pellentesque
-												mi nec pellentesque. Pellentesque ac pharetra turpis. In ornare, tortor at mattis sollicitudin,
-												diam risus iaculis metus, in blandit velit libero ac justo.
-											</p>
-										</lume-element3d>
+										{selectedProject()?.content.map(item =>
+											item.type === 'paragraph' ? (
+												<lume-element3d size-mode="p l" size="1 300">
+													<p
+														ref={e => {
+															const size = elementSize(e)
+															const parent = e.parentElement as Element3D
+															createEffect(() => (parent.size.y = size.clientHeight()))
+														}}
+													>
+														{item.content}
+													</p>
+												</lume-element3d>
+											) : item.type === 'image' ? (
+												<lume-tilt-card
+													size-mode="p l"
+													size="1 300"
+													image={item.content}
+													rotation-amount="0"
+												></lume-tilt-card>
+											) : null,
+										)}
 									</lume-flex>
 								</lume-flex>
 							</lume-scroller>
 						</lume-scene>
-						<style innerHTML={style()}></style>
+						<style innerHTML={style(dark)}></style>
 					</main>
 				)
 			}}
@@ -273,7 +361,7 @@ export default function App() {
 		</Router>
 	)
 
-	function style() {
+	function style(dark: boolean) {
 		return /*css*/ `
             #projectContent {
                 p {
@@ -283,6 +371,7 @@ export default function App() {
             }
 
             lume-scroller {
+
                 /*
                  * Weird workaround due to pointer events working differently
                  * across browsers CSS 3D. Let's just say CSS 3D (in all major
@@ -316,6 +405,22 @@ export default function App() {
                     -webkit-tap-highlight-color: transparent;
                     user-select: none;
                 }
+
+				div {
+					color: #eee;
+					pointer-events: none;
+					font-weight: bold;
+					text-shadow: 0 0 3px black;
+					font-size: 2em;
+				}
+
+				&:hover {
+					&::part(root) {
+					}
+
+					div {
+					}
+				}
             }
         `
 	}
@@ -328,6 +433,9 @@ function getLume() {
 }
 
 function detectBrowser(): 'chrome' | 'safari' | 'firefox' {
+	// if SSR
+	if (!globalThis.navigator) return 'chrome'
+
 	// The order of these checks matters!
 	if (navigator.userAgent.includes('Edg/')) return 'chrome' // for now, no need to differentiate Chrome from Edge, maybe later...
 	if (navigator.userAgent.includes('Chrome/')) return 'chrome'

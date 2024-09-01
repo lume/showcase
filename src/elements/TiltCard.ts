@@ -1,8 +1,10 @@
-import {batch, createMemo, createSignal, onCleanup, onMount} from 'solid-js'
+import {batch, createSignal, onCleanup, onMount} from 'solid-js'
 import type {ElementAttributes} from '@lume/element'
 import type {Element3DAttributes, Element3D, TextureProjector} from 'lume'
 import {createMutable} from 'solid-js/store'
 import {clamp} from '../utils/clamp.js'
+import {arraysEqual} from '../utils/arraysEqual.js'
+import {createArrayMemo} from '../utils/createArrayMemo.js'
 
 export type TiltCardAttributes = Element3DAttributes | 'image'
 
@@ -36,8 +38,10 @@ async function defineElement() {
 		override template = () => {
 			let plane: Element3D
 
+			const size = 300
+
 			const state = createMutable({
-				pointer: {x: 300 / 2, y: 300 / 2},
+				pointer: {x: size / 2, y: size / 2},
 				over: false,
 			})
 
@@ -49,12 +53,12 @@ async function defineElement() {
 
 				const task = Motor.addRenderTask(time => {
 					targetRotationX = clamp(
-						-((state.pointer.y / 300) * rotationAmount - rotationAmount / 2),
+						-((state.pointer.y / size) * rotationAmount - rotationAmount / 2),
 						-rotationAmount / 2,
 						rotationAmount / 2,
 					)
 					targetRotationY = clamp(
-						+((state.pointer.x / 300) * rotationAmount - rotationAmount / 2),
+						+((state.pointer.x / size) * rotationAmount - rotationAmount / 2),
 						-rotationAmount / 2,
 						rotationAmount / 2,
 					)
@@ -70,10 +74,11 @@ async function defineElement() {
 			})
 
 			const [projector, setProjector] = createSignal<TextureProjector>()
-			const projectors = createMemo(() => (projector() ? [projector()] : []))
+			const projectors = createArrayMemo(() => (projector() ? [projector()] : []))
 
 			return html`
 				<lume-rounded-rectangle
+					id=${() => this.image.split('/').pop()}
 					part="root"
 					ref=${(e: Element3D) => (plane = e)}
 					corner-radius="20"
@@ -82,11 +87,13 @@ async function defineElement() {
 					size-mode="p p"
 					size="1 1 0"
 					has="projected-material"
-					texture-projectors=${projectors}
-					roughness="0.4"
+					texture-projectors=${() => (console.log('tilt card projectors', projectors()), projectors())}
+					roughness="0.55"
 					clearcoat="0"
-					clearcoat-roughness="0.4"
+					clearcoat-roughness="0.55"
 					metalness="0"
+					color="black"
+					color-comment="the background should be approximately the color of the projected texture, for now, because when opacity is less than 1 the transparent surface immediately turns the specified color blended with the projected texture which may be undersirable. The underlying color is visible (mixed with the texture) only when opacity is less than 1."
 					comment="Come up with a way to not have to re-create all these properties, so they can be passed-through."
 					opacity=${() => this.opacity}
 					cast-shadow=${() => this.castShadow}
@@ -118,7 +125,7 @@ async function defineElement() {
 						mount-point="0.5 0.5"
 						align-point="0.5 0.5"
 						fitment="cover"
-						src=${() => this.image}
+						src=${() => (console.log('tilt card image,', this.image), this.image)}
 					>
 						<slot></slot>
 					</lume-texture-projector>

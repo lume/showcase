@@ -9,7 +9,10 @@ import type {ElementAttributes} from '@lume/element'
 import type {Element3DAttributes, Element3D} from 'lume'
 import {slottedLumeElements} from '../utils/slottedLumeElements.js'
 import {DragFling} from '../interaction/DragFling.js'
+
 export type ScrollerAttributes = Element3DAttributes
+
+export type ScrollItemAttributes = Element3DAttributes | 'skip'
 
 const tiny = 0.000000000000000000001
 
@@ -19,9 +22,30 @@ if (globalThis.window?.document) await defineElement()
 
 async function defineElement() {
 	const {default: html} = await import('solid-js/html')
-	const {Element3D, ScrollFling} = await import('lume')
+	const {Element3D, ScrollFling, booleanAttribute} = await import('lume')
 	const {element} = await import('@lume/element')
 	const {autoDefineElements} = await import('lume/dist/LumeConfig.js')
+
+	/**
+	 * @extends Element3D
+	 * @class ScrollItem -
+	 *
+	 * Element: `<lume-scroll-item>`
+	 *
+	 * An element to use as child of a `<lume-scroller>` element when child
+	 * options are to be given. Children of `<lume-scroller>` do not need to be
+	 * `<lume-scroll-item>` elements, but when they are not, then options for
+	 * those children cannot be given and defaults will be used instead.
+	 */
+	@element('lume-scroll-item', autoDefineElements)
+	class ScrollItem extends Element3D {
+		/**
+		 * When true, this element will be skipped from contributing to the size
+		 * of a parent <lume-scroller> element's scrollable area, instead
+		 * positioned as usual as if its parent were a <lume-element3d>.
+		 */
+		@booleanAttribute skip = false
+	}
 
 	/**
 	 * @extends Element3D
@@ -35,11 +59,11 @@ async function defineElement() {
 	 *
 	 * - Default: The default slot is a catch-all for all children that will be scrolled.
 	 */
-	return @element('lume-scroller', autoDefineElements)
+	@element('lume-scroller', autoDefineElements)
 	class Scroller extends Element3D {
 		override readonly hasShadow = true
 
-		#scrollContainer: Element3D | null = null
+		#translator: Element3D | null = null
 		#scrollknob: Element3D | null = null
 
 		override connectedCallback() {
@@ -49,7 +73,9 @@ async function defineElement() {
 			let amountScrolled = 0
 
 			this.createEffect(() => {
-				const children = slottedLumeElements(this.#scrollContainer!.children[0] as HTMLSlotElement)
+				const isScrollItem = (el: Element) => el instanceof ScrollItem
+				const elements = slottedLumeElements(this.#translator!.children[0] as HTMLSlotElement)
+				const children = createMemo(() => elements().filter(el => (isScrollItem(el) && el.skip ? false : true)))
 
 				const contentHeight = createMemo(() => {
 					let height = 0
@@ -61,7 +87,7 @@ async function defineElement() {
 
 				const scrollableAmount = createMemo(() => {
 					// Using Math.max so that if content is smaller than scroll we don't scroll
-					return Math.max(0, contentHeight() - this.#scrollContainer!.calculatedSize.y)
+					return Math.max(0, contentHeight() - this.#translator!.calculatedSize.y)
 				})
 
 				// Scroll implementation //////////////////////////////////////////////////////////////////////
@@ -86,7 +112,7 @@ async function defineElement() {
 						scrollFling.y
 
 						untrack(() => {
-							this.#scrollContainer!.position.y = -(scrollFling.y || 0)
+							this.#translator!.position.y = -(scrollFling.y || 0)
 							// The `|| tiny` prevents NaN from 0/0
 							scrollRatio = scrollFling.y / (scrollableAmount() || tiny)
 							amountScrolled = scrollFling.y
@@ -129,12 +155,11 @@ async function defineElement() {
 
 				const thumbHeight = createMemo(() => {
 					// If the scroll area is bigger than the content, hide the thumb
-					if (this.#scrollContainer!.calculatedSize.y / (contentHeight() || tiny) >= 1) return 0
+					if (this.#translator!.calculatedSize.y / (contentHeight() || tiny) >= 1) return 0
 
 					return Math.max(
 						10,
-						(this.#scrollContainer!.calculatedSize.y / (contentHeight() || tiny)) *
-							this.#scrollContainer!.calculatedSize.y,
+						(this.#translator!.calculatedSize.y / (contentHeight() || tiny)) * this.#translator!.calculatedSize.y,
 					)
 				})
 
@@ -143,13 +168,12 @@ async function defineElement() {
 		}
 
 		override template = () => html`
-			<lume-element3d
-				id="#scrollContainer"
-				size-mode="p p"
-				size="1 1"
-				ref=${(e: Element3D) => (this.#scrollContainer = e)}
-			>
-				<slot></slot>
+			<lume-element3d size-mode="p p" size="1 1" id="scrollarea">
+				<lume-element3d size-mode="p p" size="1 1" id="translator" ref=${(e: Element3D) => (this.#translator = e)}>
+					<slot></slot>
+				</lume-element3d>
+
+				<slot name="scrollarea"></slot>
 			</lume-element3d>
 
 			<lume-element3d
@@ -162,6 +186,8 @@ async function defineElement() {
 			>
 				<slot name="scrollknob"></slot>
 			</lume-element3d>
+
+			<slot name="passthrough"></slot>
 		`
 
 		static override css = /*css*/ `
@@ -172,11 +198,13 @@ async function defineElement() {
 			}
 		`
 	}
+
+	return [Scroller, ScrollItem] as const
 }
 
 // Temporary hack type to get around the async defineElement() workaround
 // wrapper (see above).
-type ScrollerCtor = Awaited<ReturnType<typeof defineElement>>
+type ScrollerCtor = Awaited<ReturnType<typeof defineElement>>[0]
 export type Scroller = InstanceType<ScrollerCtor>
 
 declare module 'solid-js' {
@@ -190,5 +218,24 @@ declare module 'solid-js' {
 declare global {
 	interface HTMLElementTagNameMap {
 		'lume-scroller': Scroller
+	}
+}
+
+// Temporary hack type to get around the async defineElement() workaround
+// wrapper (see above).
+type ScrollItemCtor = Awaited<ReturnType<typeof defineElement>>[0]
+export type ScrollItem = InstanceType<ScrollItemCtor>
+
+declare module 'solid-js' {
+	namespace JSX {
+		interface IntrinsicElements {
+			'lume-scroll-item': ElementAttributes<ScrollItem, ScrollItemAttributes>
+		}
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'lume-scroll-item': ScrollItem
 	}
 }
