@@ -2,7 +2,7 @@ import {Router, useParams} from '@solidjs/router'
 import {FileRoutes} from '@solidjs/start/router'
 import {createEffect, createMemo, createSignal, onCleanup, onMount, Suspense, untrack, Show} from 'solid-js'
 import {createMutable} from 'solid-js/store'
-import type {Element3D, PointLight, TextureProjector} from 'lume'
+import {Motor, type Element3D, type PointLight} from 'lume'
 import {elementSize} from './utils/elementSize.js'
 import './app.css'
 import './elements/Scroller.js'
@@ -11,8 +11,6 @@ import type {Flex} from './elements/Flex.js'
 import './elements/TiltCard.js'
 import {type TiltCard} from './elements/TiltCard.js'
 import {childLumeElements} from './utils/childLumeElements.js'
-
-if (globalThis.window?.document) await import('lume')
 
 interface ProjectItem {
 	type: 'image' | 'paragraph'
@@ -128,16 +126,13 @@ export default function App() {
 
 				// onMount -> client only
 				onMount(() => {
-					const lume = getLume()
-
 					document.body.style.setProperty('--font-base-color', dark ? '#eee' : '#444')
 
 					createEffect(() => {
-						if (!lume()) return
-
-						const {Motor} = lume()!
 						const light = document.querySelector('#light') as PointLight
-						const rotator = contentRotator()!
+
+						const rotator = contentRotator()
+						if (!rotator) return
 
 						const task = Motor.addRenderTask(time => {
 							light.position.x += (state.pointer.x - light.position.x) * 0.05
@@ -424,12 +419,6 @@ export default function App() {
             }
         `
 	}
-}
-
-function getLume() {
-	const [lume, setLume] = createSignal<typeof import('lume')>()
-	import('lume').then(setLume)
-	return lume
 }
 
 function detectBrowser(): 'chrome' | 'safari' | 'firefox' {

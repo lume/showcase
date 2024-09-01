@@ -12,9 +12,12 @@
 		"@solidjs/start": "^1.0.6",
 		"classy-solid": "^0.3.7",
 		"lume": "^0.3.0-alpha.43",
-		"solid-js": "^1.8.18",
+		"solid-js": "npm:trusktr-solid-js@1.8.22-467e872da7d2be532e05f21dd01c2e72484ff2a2",
 		"vinxi": "^0.4.1",
 		"yoga-layout": "^3.1.0"
+	},
+	"overrides": {
+		"solid-js": "$solid-js"
 	},
 	"engines": {
 		"node": ">=18"
