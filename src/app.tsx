@@ -6,6 +6,7 @@ import {Motor, type Element3D, type PointLight} from 'lume'
 import {elementSize} from './utils/elementSize.js'
 import './app.css'
 import './elements/Scroller.js'
+import type {Scroller} from './elements/Scroller.js'
 import './elements/Flex.js'
 import type {Flex} from './elements/Flex.js'
 import './elements/TiltCard.js'
@@ -97,6 +98,7 @@ export default function App() {
 			root={props => {
 				const [titleBox, setTitleBox] = createSignal<Element3D>()
 				const [contentRotator, setContentRotator] = createSignal<Element3D>()
+				const [scroller, setScroller] = createSignal<Scroller>()
 				const [header, setHeader] = createSignal<HTMLHeadingElement>()
 				const [cards, setCards] = createSignal<TiltCard[]>([])
 				const [projectContent, setProjectContent] = createSignal<Flex>()
@@ -173,12 +175,13 @@ export default function App() {
 										dones.push(postDelayDone)
 										if (i === _cards.length - 1) {
 											const allDone = createMemo(() => dones.every(d => !!d()))
-											createEffect(() => allDone() && setShowCards(false))
+											createEffect(() => allDone() && (setShowCards(false), scroller()!.scroll(0, 0)))
 										}
 									} else {
 										const done = fadeElement(el, 1, 0, i * stagger)
 										createEffect(() => done() && (el.castShadow = true))
 										setShowCards(true)
+										scroller()!.scroll(0, 0)
 										dones.push(done)
 									}
 								}
@@ -239,6 +242,7 @@ export default function App() {
 								size-mode="p p"
 								size="1 1"
 								ref={e => {
+									setScroller(e)
 									setTimeout(() => {
 										const scrollRoot = e.shadowRoot!.querySelector('#scrollarea') as Element3D
 										setContentRotator(scrollRoot)

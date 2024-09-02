@@ -46,7 +46,7 @@ export type FlexItemAttributes = Element3DAttributes | 'skip'
  * given and defaults will be used.
  */
 @element('lume-flex-item', autoDefineElements)
-class FlexItem extends Element3D {
+export class FlexItem extends Element3D {
 	/**
 	 * When true, this element will be skipped from being laid out by a
 	 * parent <lume-flex> element, instead positioned as usual as if its
@@ -91,7 +91,7 @@ export type FlexAttributes =
  * - Default: The default slot for all children that will be laid out.
  */
 @element('lume-flex', autoDefineElements)
-class Flex extends Element3D {
+export class Flex extends Element3D {
 	override readonly hasShadow = true
 
 	@stringAttribute direction: 'row' | 'column' | 'row-reverse' | 'column-reverse' = 'row'

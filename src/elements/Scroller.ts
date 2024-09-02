@@ -11,6 +11,7 @@ import {Element3DAttributes, Element3D, ScrollFling} from 'lume'
 import {slottedLumeElements} from '../utils/slottedLumeElements.js'
 import {DragFling} from '../interaction/DragFling.js'
 import {autoDefineElements} from 'lume/dist/LumeConfig.js'
+import {clamp} from '../utils/clamp.js'
 
 export type ScrollerAttributes = Element3DAttributes
 
@@ -71,16 +72,50 @@ export class Scroller extends Element3D {
 
 	#translator: Element3D | null = null
 	#scrollknob: Element3D | null = null
+	#scrollFling: ScrollFling | null = null
+
+	override scrollTo(options?: ScrollToOptions | undefined): void
+	override scrollTo(x: number, y: number): void
+	override scrollTo(_optionsOrX?: ScrollToOptions | number, _y?: number): void {
+		this.scroll(...arguments)
+	}
+
+	override scroll(options?: ScrollToOptions | undefined): void
+	override scroll(x: number, y: number): void
+	override scroll(optionsOrX?: ScrollToOptions | number, y?: number): void {
+		// two args (x, y)
+		if (arguments.length === 2) {
+			const options: ScrollToOptions = {behavior: 'auto', left: Number(optionsOrX), top: Number(y)}
+			this.#doScroll(options)
+			return
+		}
+
+		// single arg (options)
+		const options = (optionsOrX ?? {behavior: 'auto'}) as ScrollToOptions
+		this.#doScroll(options)
+	}
+
+	#doScroll(options: ScrollToOptions) {
+		if (typeof options !== 'object') {
+			const msg = "Failed to execute 'scroll' on 'Element': The provided value is not of type 'ScrollToOptions'."
+			throw new TypeError(msg)
+		}
+
+		if (!this.#scrollFling) return
+
+		// For now we simply scroll immediately, we ignore the behavior option.
+		if (typeof options.left !== 'undefined')
+			this.#scrollFling.x = clamp(options.left, this.#scrollFling.minX, this.#scrollFling.maxX)
+		if (typeof options.top !== 'undefined')
+			this.#scrollFling.y = clamp(options.top, this.#scrollFling.minY, this.#scrollFling.maxY)
+	}
 
 	override connectedCallback() {
 		super.connectedCallback()
 
-		let scrollRatio = 0
-		let amountScrolled = 0
-
 		this.createEffect(() => {
-			const isScrollItem = (el: Element) => el instanceof ScrollItem
 			const elements = slottedLumeElements(this.#translator!.children[0] as HTMLSlotElement)
+			const isScrollItem = (el: Element) => el instanceof ScrollItem
 			const children = createMemo(() => elements().filter(el => (isScrollItem(el) && el.skip ? false : true)))
 
 			const contentHeight = createMemo(() => {
@@ -96,16 +131,17 @@ export class Scroller extends Element3D {
 				return Math.max(0, contentHeight() - this.#translator!.calculatedSize.y)
 			})
 
-			// Scroll implementation //////////////////////////////////////////////////////////////////////
+			const scrollFling = (this.#scrollFling = new ScrollFling())
+
+			let scrollRatio = 0
+			let amountScrolled = 0
+
 			createEffect(() => {
 				const scene = this.scene
 				if (!scene) return
 
-				const scrollFling = new ScrollFling()
-
 				scrollFling.set({
 					target: scene,
-					// y: scrollRatio * scrollableAmount(),
 					// Use Math.min in case the page is at the end, so that the viewport won't be scrolled beyond the end of content in case content height shrunk.
 					y: Math.min(amountScrolled, scrollableAmount()),
 					minY: 0,
@@ -115,26 +151,30 @@ export class Scroller extends Element3D {
 				})
 
 				scrollFling.start()
+			})
 
-				createEffect(() => {
-					scrollFling.y
+			onCleanup(() => (scrollFling.stop(), (this.#scrollFling = null)))
 
-					untrack(() => {
-						this.#translator!.position.y = -(scrollFling.y || 0)
-						// The `|| tiny` prevents NaN from 0/0
-						scrollRatio = scrollFling.y / (scrollableAmount() || tiny)
-						amountScrolled = scrollFling.y
-						this.#scrollknob!.alignPoint.y = scrollRatio
-						this.#scrollknob!.mountPoint.y = scrollRatio
-					})
+			createEffect(() => {
+				scrollFling.y
+
+				untrack(() => {
+					this.#translator!.position.y = -(scrollFling.y || 0)
+					// The `|| tiny` prevents NaN from 0/0
+					scrollRatio = scrollFling.y / (scrollableAmount() || tiny)
+					amountScrolled = scrollFling.y
+					this.#scrollknob!.alignPoint.y = scrollRatio
+					this.#scrollknob!.mountPoint.y = scrollRatio
 				})
+			})
 
-				onCleanup(() => scrollFling.stop())
+			const hasTouchScreen = navigator.maxTouchPoints > 0
+			const dragFling = hasTouchScreen ? new DragFling() : null
 
-				const hasTouchScreen = navigator.maxTouchPoints > 0
-
-				if (hasTouchScreen) {
-					const dragFling = new DragFling()
+			if (dragFling) {
+				createEffect(() => {
+					const scene = this.scene
+					if (!scene) return
 
 					dragFling.set({
 						target: scene,
@@ -150,16 +190,16 @@ export class Scroller extends Element3D {
 					})
 
 					dragFling.start()
+				})
 
-					onCleanup(() => dragFling.stop())
+				onCleanup(() => dragFling.stop())
 
-					// Sync the two flings together
-					const scrollFlingY = createMemo(() => scrollFling.y)
-					const dragFlingY = createMemo(() => dragFling.y)
-					createEffect(() => (scrollFling.y = dragFlingY()))
-					createEffect(() => (dragFling.y = scrollFlingY()))
-				}
-			})
+				// Sync the two flings together
+				const scrollFlingY = createMemo(() => scrollFling.y)
+				const dragFlingY = createMemo(() => dragFling.y)
+				createEffect(() => (scrollFling.y = dragFlingY()))
+				createEffect(() => (dragFling.y = scrollFlingY()))
+			}
 
 			const thumbHeight = createMemo(() => {
 				// If the scroll area is bigger than the content, hide the thumb
