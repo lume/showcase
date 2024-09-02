@@ -423,7 +423,7 @@ export default function App() {
 
 function detectBrowser(): 'chrome' | 'safari' | 'firefox' {
 	// if SSR
-	if (!globalThis.navigator) return 'chrome'
+	if (!globalThis.navigator?.userAgent) return 'chrome'
 
 	// The order of these checks matters!
 	if (navigator.userAgent.includes('Edg/')) return 'chrome' // for now, no need to differentiate Chrome from Edge, maybe later...

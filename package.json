@@ -11,8 +11,8 @@
 		"@solidjs/router": "^0.14.1",
 		"@solidjs/start": "^1.0.6",
 		"classy-solid": "^0.3.7",
-		"lume": "^0.3.0-alpha.43",
-		"solid-js": "npm:trusktr-solid-js@1.8.22-467e872da7d2be532e05f21dd01c2e72484ff2a2",
+		"lume": "lume/lume#9002deb8d279e9fae0a2090d04c36258cc6ae92a",
+		"solid-js": "npm:trusktr-solid-js@1.8.22-617a64ad910ef15556d2bb5d24959b22bf4284a3",
 		"vinxi": "^0.4.1",
 		"yoga-layout": "^3.1.0"
 	},

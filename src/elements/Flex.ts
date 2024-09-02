@@ -28,6 +28,7 @@ if (globalThis.window?.document) {
 		Edge,
 		Justify,
 		Align,
+		// @ts-ignore
 	} = (await import('https://unpkg.com/yoga-layout@3.1.0/dist/src/index.js')) as typeof import('yoga-layout'))
 }
 
