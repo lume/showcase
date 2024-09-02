@@ -101,7 +101,9 @@ export class Scroller extends Element3D {
 				const scene = this.scene
 				if (!scene) return
 
-				const scrollFling = new ScrollFling({
+				const scrollFling = new ScrollFling()
+
+				scrollFling.set({
 					target: scene,
 					// y: scrollRatio * scrollableAmount(),
 					// Use Math.min in case the page is at the end, so that the viewport won't be scrolled beyond the end of content in case content height shrunk.
