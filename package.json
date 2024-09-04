@@ -10,8 +10,9 @@
 	"dependencies": {
 		"@solidjs/router": "^0.14.1",
 		"@solidjs/start": "^1.0.6",
+		"@tweenjs/tween.js": "^25.0.0",
 		"classy-solid": "^0.3.7",
-		"lume": "lume/lume#9002deb8d279e9fae0a2090d04c36258cc6ae92a",
+		"lume": "lume/lume#929d000fb3789b0299a8da43a1657232181a5af7",
 		"solid-js": "npm:trusktr-solid-js@1.8.22-617a64ad910ef15556d2bb5d24959b22bf4284a3",
 		"vinxi": "^0.4.1",
 		"yoga-layout": "^3.1.0"

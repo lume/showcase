@@ -5,6 +5,7 @@ import {Element3DAttributes, Element3D, signal} from 'lume'
 import type {Node as YogaNode} from 'yoga-layout'
 import {slottedLumeElements} from '../utils/slottedLumeElements.js'
 import {autoDefineElements} from 'lume/dist/LumeConfig.js'
+import {clamp} from '../utils/clamp.js'
 
 // This is not working yet (https://github.com/solidjs/solid-start/issues/1614), so we import with conditional await import()
 // import Yoga, {Direction, FlexDirection, Gutter, Wrap, Edge, Justify, Align} from 'yoga-layout'
@@ -75,8 +76,10 @@ export type FlexAttributes =
 	| 'gap'
 	| 'direction'
 	| 'alignItems'
+	| 'alignContent'
 	| 'padding'
 	| 'skip'
+	| 'minHeight'
 
 /**
  * @extends Element3D
@@ -98,12 +101,17 @@ export class Flex extends Element3D {
 
 	@stringAttribute alignItems: 'baseline' | 'center' | 'end' | 'start' | 'stretch' = 'start'
 
-	@stringAttribute justifyContent: 'center' | 'end' | 'space-around' | 'space-between' | 'space-evenly' | 'start' =
+	@stringAttribute alignContent: 'start' | 'center' | 'end' | 'space-around' | 'space-between' | 'spave-evenly' =
+		'start'
+
+	@stringAttribute justifyContent: 'start' | 'center' | 'end' | 'space-around' | 'space-between' | 'space-evenly' =
 		'start'
 
 	@numberAttribute padding = 0
 
 	@numberAttribute gap = 0
+
+	@numberAttribute minHeight = 0
 
 	/**
 	 * When true, this element will be skipped from being laid out by a
@@ -132,7 +140,9 @@ export class Flex extends Element3D {
 			const children = createMemo(() => elements().filter(el => (isFlex(el) && el.skip ? false : true)))
 
 			const thisSizeX = createMemo(() => this.calculatedSize.x)
+			const thisSizeY = createMemo(() => this.calculatedSize.y)
 			const paddingBoxSizeX = createMemo(() => this.#paddingBox!.calculatedSize.x)
+			const paddingBoxSizeY = createMemo(() => this.#paddingBox!.calculatedSize.y)
 
 			const root = (this.__yogaRoot = Yoga.Node.create())
 			root.setFlexWrap(Wrap.Wrap)
@@ -144,7 +154,8 @@ export class Flex extends Element3D {
 				this.#paddingBox!.position.y = this.padding
 			})
 
-			root.setGap(Gutter.All, 40)
+			// TODO, currently breaks, root height goes to zero
+			// root.setAlignContent(Align.Center)
 
 			onCleanup(() => root.free())
 
@@ -177,15 +188,30 @@ export class Flex extends Element3D {
 					let alignItems
 					// prettier-ignore
 					switch (this.alignItems) {
-							case 'baseline': alignItems = Align.Baseline; break
-							case 'center': alignItems = Align.Center; break
-							case 'end': alignItems = Align.FlexEnd; break
-							case 'start': alignItems = Align.FlexStart; break
-							case 'stretch': alignItems = Align.Stretch; break
-						}
+						case 'baseline': alignItems = Align.Baseline; break
+						case 'center': alignItems = Align.Center; break
+						case 'end': alignItems = Align.FlexEnd; break
+						case 'start': alignItems = Align.FlexStart; break
+						case 'stretch': alignItems = Align.Stretch; break
+					}
 
-					if (this.id === 'projectContent') console.log('align-items:', this.alignItems, Align[alignItems])
-					root.setAlignItems(alignItems)
+					// TODO alignItems is disabled for now, breaks when used together with alignContent (https://github.com/facebook/yoga/issues/1695)
+					// root.setAlignItems(alignItems)
+					updateLayout()
+				})
+
+				createEffect(() => {
+					let alignContent
+					// prettier-ignore
+					switch (this.alignContent) {
+						case 'baseline': alignContent = Align.Baseline; break
+						case 'center': alignContent = Align.Center; break
+						case 'end': alignContent = Align.FlexEnd; break
+						case 'start': alignContent = Align.FlexStart; break
+						case 'stretch': alignContent = Align.Stretch; break
+					}
+
+					root.setAlignContent(alignContent)
 					updateLayout()
 				})
 
@@ -224,15 +250,35 @@ export class Flex extends Element3D {
 					updateLayout()
 				})
 
+				// FIXME not quite right (but looks ok for now)
+				// createEffect(() => {
+				// 	// root.setHeight(paddingBoxSizeY())
+				// 	root.setHeight(thisSizeY() - this.padding * 2)
+				// 	if (this.id === 'bodyContainer') {
+				// 		console.log('thisSizeY()', root.getComputedHeight(), thisSizeY())
+				// 		setTimeout(() => console.log('thisSizeY()', root.getComputedHeight(), thisSizeY()), 1000)
+				// 	}
+				// 	updateLayout()
+				// })
+
 				createEffect(() => {
 					layoutUpdated()
 
-					this.#paddingBox!.size.y = Math.max(0, root.getComputedHeight())
-					this.size.y = Math.max(0, root.getComputedHeight() + this.padding * 2)
+					const sizeY = Math.max(0, Math.max(root.getComputedHeight() + this.padding * 2, this.minHeight))
+					this.size.y = sizeY
+					// if (this.id === 'bodyContainer') {
+					// 	console.log('sizeY', root.getComputedHeight(), sizeY)
+					// 	setTimeout(() => console.log('sizeY', root.getComputedHeight(), sizeY), 1000)
+					// }
+					// this.#paddingBox!.size.y = Math.max(0, root.getComputedHeight())
+					this.#paddingBox!.size.y = Math.max(0, sizeY - this.padding * 2)
 				})
 
 				function updateLayout() {
-					root.calculateLayout(paddingBoxSizeX(), undefined /*auto*/, Direction.LTR)
+					// root.calculateLayout(paddingBoxSizeX(), undefined /*auto*/, Direction.LTR)
+					// root.calculateLayout(undefined, undefined /*auto*/, Direction.LTR)
+					root.calculateLayout(undefined, undefined)
+
 					applyLayoutToElements()
 					setLayoutUpdated(n => ++n)
 				}
@@ -255,7 +301,7 @@ export class Flex extends Element3D {
 	}
 
 	override template = () => html`
-		<lume-element3d id="#container" size-mode="p p" size="1 1">
+		<lume-element3d id="container" size-mode="p p" size="1 1">
 			<lume-element3d ref=${(e: Element3D) => (this.#paddingBox = e)}>
 				<slot></slot>
 			</lume-element3d>
@@ -266,6 +312,11 @@ export class Flex extends Element3D {
 
 	static override css = /*css*/ `
 		${Element3D.css}
+
+		/* debug
+		#container {outline: 1px solid cyan}
+		#container > * {outline: 1px solid yellow}
+		*/
 	`
 }
 

@@ -72,18 +72,19 @@ export class TiltCard extends Element3D {
 				id=${() => this.image.split('/').pop()}
 				part="root"
 				ref=${(e: Element3D) => (plane = e)}
-				corner-radius="20"
+				corner-radius="10"
 				thickness="5"
 				quadratic-corners="false"
 				size-mode="p p"
 				size="1 1 0"
 				has="projected-material"
-				texture-projectors=${() => (console.log('tilt card projectors', projectors()), projectors())}
+				texture-projectors=${() => projectors()}
 				roughness="0.55"
 				clearcoat="0"
 				clearcoat-roughness="0.55"
 				metalness="0"
 				color="black"
+				dithering
 				color-comment="the background should be approximately the color of the projected texture, for now, because when opacity is less than 1 the transparent surface immediately turns the specified color blended with the projected texture which may be undersirable. The underlying color is visible (mixed with the texture) only when opacity is less than 1."
 				comment="Come up with a way to not have to re-create all these properties, so they can be passed-through."
 				opacity=${() => this.opacity}
@@ -116,7 +117,7 @@ export class TiltCard extends Element3D {
 					mount-point="0.5 0.5"
 					align-point="0.5 0.5"
 					fitment="cover"
-					src=${() => (console.log('tilt card image,', this.image), this.image)}
+					src=${() => this.image}
 				>
 					<slot></slot>
 				</lume-texture-projector>
