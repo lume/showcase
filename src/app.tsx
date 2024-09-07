@@ -14,14 +14,16 @@ import './elements/TiltCard.js'
 import {type TiltCard} from './elements/TiltCard.js'
 import {childLumeElements} from './utils/childLumeElements.js'
 import {projects} from './projects.js'
+import {animateValue} from './utils/animateValue.js'
+import {timeout} from './utils/timeout.js'
 
-const dark = true
+const dark = false
 
 export default function App() {
 	return (
 		<Router
 			root={props => {
-				const [scene, setScene] = createSignal<Scene>([])
+				const [scene, setScene] = createSignal<Scene>()
 				const [titleBox, setTitleBox] = createSignal<Element3D>()
 				const [contentRotator, setContentRotator] = createSignal<Element3D>()
 				const [scroller, setScroller] = createSignal<Scroller>()
@@ -82,7 +84,8 @@ export default function App() {
 
 					createEffect(() => {
 						if (transitionCardsOut()) {
-							const done = fadeCardsOut(cards())
+							const fadeDone = fadeCardsOut(cards())
+							const done = timeout(150, fadeDone)
 							createEffect(() => done() && (setShowCards(false), scroller()!.scroll(0, 0)))
 						} else {
 							fadeCardsIn(cards())
@@ -423,16 +426,17 @@ function detectBrowser(): 'chrome' | 'safari' | 'firefox' {
 
 function BackButton(props: {visible: boolean}) {
 	const navigate = useNavigate()
+	const thickness = 5
 
 	return (
 		<lume-element3d id="backBtn" visible={props.visible} size="60 60 0" rotation="0 0 180" onclick={() => navigate(-1)}>
 			<lume-rounded-rectangle
 				size-mode="p p"
 				size="1 1 0"
-				thickness="100"
-				position="0 0 -50"
+				thickness={thickness}
+				position={`0 0 ${-thickness / 2}`}
 				corner-radius="30"
-				color={dark || true ? 'cornflowerblue' : '#ddd'}
+				color={dark || true ? '#777' : '#ddd'}
 			></lume-rounded-rectangle>
 
 			<lume-element3d align-point="0.5 0.5" mount-point="0.5 0.5">
@@ -457,70 +461,7 @@ function BackButton(props: {visible: boolean}) {
 	)
 }
 
-// This is a very basic number animator, the start of what could be a *reactive* tweening library.
-// For now its a linear tween. We could use our functions from Tween.js for easing curves.
-function animateValue<T extends number>(
-	getValue: () => T,
-	setValue: (v: T) => {},
-	targetValue: T,
-	{
-		delay = 0,
-		duration = 1000,
-		curve = Easing.Cubic.InOut,
-	}: {
-		/** Amount to delay before animating. */
-		delay?: number
-		/** Duration of the animation in milliseconds. */
-		duration?: number
-		/**
-		 * The easing curve to use. The function
-		 * accepts a value between 0 and 1 indicating start to finish time,
-		 * and returns a value between 0 and 1 indicating start to finish
-		 * position. You can pass any Tween.js Easing curve here, for
-		 * example. Defaults to Tween.js Easing.Cubic.InOut
-		 */
-		curve?: (amount: number) => number
-	} = {},
-) {
-	const [done, setDone] = createSignal(false)
-	const startValue = untrack(getValue)
-
-	createEffect(() => {
-		if (untrack(getValue) === targetValue) return setDone(true)
-
-		let frame = 0
-
-		const timeout = setTimeout(() => {
-			const start = performance.now()
-
-			frame = requestAnimationFrame(function loop(time) {
-				let val = getValue()
-
-				const elapsed = time - start
-				const elapsedPortion = elapsed / duration
-				const amount = curve(elapsedPortion > 1 ? 1 : elapsedPortion)
-				const valuePortion = amount * (targetValue - startValue)
-
-				val = (startValue + valuePortion) as T
-				setValue(val)
-
-				if (val === targetValue) return setDone(true)
-
-				frame = requestAnimationFrame(loop)
-			})
-		}, delay)
-
-		onCleanup(() => {
-			clearTimeout(timeout)
-			cancelAnimationFrame(frame)
-			setDone(false)
-		})
-	})
-
-	return done
-}
-
-function fadeCard(element: TiltCard | (() => TiltCard), targetOpacity: number, targetZ: number, delay: number) {
+function fadeCard(element: TiltCard | (() => TiltCard), targetOpacity: number, targetZ: number, start?: () => boolean) {
 	const elMemo = createMemo(() => (typeof element === 'function' ? element() : element))
 	const [allDone, setAllDone] = createSignal(false)
 	const duration = 500
@@ -529,27 +470,23 @@ function fadeCard(element: TiltCard | (() => TiltCard), targetOpacity: number, t
 		const el = elMemo()
 		if (!el) return setAllDone(false)
 
+		if (start && !start()) return setAllDone(false)
+
 		const rect = el.shadowRoot?.querySelector('lume-rounded-rectangle') as RoundedRectangle
 		const name = el.querySelector('.name') as Element3D
 		const parts = [rect, name] as const
 		const dones: Array<() => boolean> = []
 
 		for (const el of parts) {
-			const _fadeDone = animateValue(
-				() => el.opacity,
-				v => (el.opacity = v),
-				targetOpacity,
-				{delay, duration, curve: Easing.Cubic.In},
-			)
+			const opacity = () => el.opacity
+			const setOpacity = (v: number) => (el.opacity = v)
+			const _fadeDone = animateValue(opacity, setOpacity, targetOpacity, {duration, curve: Easing.Cubic.In})
 
 			dones.push(_fadeDone)
 
-			const _translateDone = animateValue(
-				() => el.position.z,
-				v => (el.position.z = v),
-				targetZ,
-				{delay, duration},
-			)
+			const position = () => el.position.z
+			const setPosition = (v: number) => (el.position.z = v)
+			const _translateDone = animateValue(position, setPosition, targetZ, {duration})
 
 			dones.push(_translateDone)
 		}
@@ -569,21 +506,13 @@ function fadeCardsOut(cards: FlexItem[]) {
 		const el = card.children[0] as TiltCard
 		const rect = el.shadowRoot?.querySelector('lume-rounded-rectangle') as RoundedRectangle
 
-		const fadeDone = fadeCard(el, 0, -20, i * stagger)
-		rect.castShadow = false
-
-		// Add a small delay after cards are faded out (f.e. before fading in project content).
-		const [postDelayDone, setPostDelayDone] = createSignal(false)
-		createEffect(() => {
-			if (!fadeDone()) return
-			const timeout = setTimeout(() => setPostDelayDone(true), 150)
-			onCleanup(() => clearTimeout(timeout))
-		})
-
-		dones.push(postDelayDone)
+		const startFade = timeout(i * stagger)
+		const fadeDone = fadeCard(el, 0, -20, startFade)
+		createEffect(() => startFade() && (rect.castShadow = false))
+		dones.push(fadeDone)
 	}
 
-	const allDone = createMemo(() => dones.every(d => !!d()))
+	const allDone = createMemo(() => dones.every(done => !!done()))
 	return allDone
 }
 
@@ -597,66 +526,97 @@ function fadeCardsIn(cards: FlexItem[]) {
 		const el = card.children[0] as TiltCard
 		const rect = el.shadowRoot?.querySelector('lume-rounded-rectangle') as RoundedRectangle
 
-		const fadeDone = fadeCard(el, 1, 0, i * stagger)
+		const startFade = timeout(i * stagger)
+		const fadeDone = fadeCard(el, 1, 0, startFade)
 		createEffect(() => fadeDone() && (rect.castShadow = true))
 		dones.push(fadeDone)
 	}
 
-	const allDone = createMemo(() => dones.every(d => !!d()))
+	const allDone = createMemo(() => dones.every(done => !!done()))
 	return allDone
 }
 
 function fadeProjectIn(projectItems: () => Element3D[]) {
+	const [dones, setDones] = createSignal<Array<() => boolean>>([])
+
 	createEffect(() => {
 		const _projectItems = projectItems()
 		if (!_projectItems) return
 
-		const stagger = 150
+		const _dones: Array<() => boolean> = []
+
+		const staggerTime = 500
+		const stagger = staggerTime / _projectItems.length
 
 		for (const [i, item] of _projectItems.entries()) {
 			const el = item
+
+			const start = timeout(i * stagger)
 
 			const getOpacity = () => el.opacity
 			const setOpacity = (v: number) => (el.opacity = v)
 			const fadeDone = animateValue(getOpacity, setOpacity, 1, {
-				delay: i * stagger,
 				duration: 350,
 				curve: Easing.Cubic.In,
+				start,
 			})
+			_dones.push(fadeDone)
 
 			const getPosition = () => el.position.z
 			const setPosition = (v: number) => (el.position.z = v)
-			const translateDone = animateValue(getPosition, setPosition, 0, {delay: i * stagger, duration: 350})
+			const translateDone = animateValue(getPosition, setPosition, 0, {duration: 350, start})
+			_dones.push(translateDone)
 
 			if (el.tagName === 'LUME-TILT-CARD')
-				createEffect(() => fadeDone() && translateDone() && ((el as TiltCard).castShadow = true))
+				createEffect(() => fadeDone() && (console.log('show shadow'), ((el as TiltCard).castShadow = true)))
 		}
+
+		setDones(_dones)
 	})
+
+	// createArrayMemo not needed because the values are unique on each change
+	const allDone = createMemo(() => !!(dones().length && dones().every(done => done())))
+	return allDone
 }
 
 function fadeProjectOut(projectItems: () => Element3D[]) {
+	const [dones, setDones] = createSignal<Array<() => boolean>>([])
+
 	createEffect(() => {
 		const _projectItems = projectItems()
-		if (!_projectItems) return
+		if (!_projectItems) return setDones([])
 
-		const stagger = 150
+		const _dones: Array<() => boolean> = []
+
+		const staggerTime = 500
+		const stagger = staggerTime / _projectItems.length
 
 		for (const [i, item] of _projectItems.entries()) {
 			const el = item
 
+			const start = timeout(i * stagger)
+
 			const getOpacity = () => el.opacity
 			const setOpacity = (v: number) => (el.opacity = v)
 			const fadeDone = animateValue(getOpacity, setOpacity, 0, {
-				delay: i * stagger,
 				duration: 350,
 				curve: Easing.Cubic.In,
+				start,
 			})
+			_dones.push(fadeDone)
 
 			const getPosition = () => el.position.z
 			const setPosition = (v: number) => (el.position.z = v)
-			const translateDone = animateValue(getPosition, setPosition, -20, {delay: i * stagger, duration: 350})
+			const translateDone = animateValue(getPosition, setPosition, -20, {duration: 350, start})
+			_dones.push(translateDone)
 
 			if (el.tagName === 'LUME-TILT-CARD') (el as TiltCard).castShadow = false
 		}
+
+		setDones(_dones)
 	})
+
+	// createArrayMemo not needed because the values are unique on each change
+	const allDone = createMemo(() => !!(dones().length && dones().every(done => done())))
+	return allDone
 }

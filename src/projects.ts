@@ -35,13 +35,25 @@ export const projects: Projects = [
 						their 3D model with the new animation data included with
 						the model.
 					</p>
-
+				`,
+			},
+			{
+				type: 'html',
+				content: /*html*/ `
                     <p>
                         Here is an overview of the app by Uthana's founder Viren Tellis:
                     </p>
-
+				`,
+			},
+			{
+				type: 'html',
+				content: /*html*/ `
                     <video src="/content/uthana/viren-uthana-overview.mp4" controls></video>
-
+				`,
+			},
+			{
+				type: 'html',
+				content: /*html*/ `
                     <p>
                         Lume Element was used for organizing all UI components,
                         and Lume's 3D elements were used for the background 3D
@@ -93,10 +105,10 @@ export const projects: Projects = [
 		],
 	},
 
-	// ...Array.from({length: 30}).map(() => ({
-	// 	name: 'Test',
-	// 	slug: 'test',
-	// 	image: '/content/neofairies/fairies-come-out.jpeg',
-	// 	content: [],
-	// })),
+	...Array.from({length: 3}).map(() => ({
+		name: 'Test',
+		slug: 'test',
+		image: '/content/neofairies/fairies-come-out.jpeg',
+		content: [],
+	})),
 ]

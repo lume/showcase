@@ -99,9 +99,9 @@ export class Flex extends Element3D {
 
 	@stringAttribute direction: 'row' | 'column' | 'row-reverse' | 'column-reverse' = 'row'
 
-	@stringAttribute alignItems: 'baseline' | 'center' | 'end' | 'start' | 'stretch' = 'start'
+	@stringAttribute alignItems: 'start' | 'center' | 'end' | 'baseline' | 'stretch' = 'start'
 
-	@stringAttribute alignContent: 'start' | 'center' | 'end' | 'space-around' | 'space-between' | 'spave-evenly' =
+	@stringAttribute alignContent: 'start' | 'center' | 'end' | 'space-around' | 'space-between' | 'space-evenly' =
 		'start'
 
 	@stringAttribute justifyContent: 'start' | 'center' | 'end' | 'space-around' | 'space-between' | 'space-evenly' =
@@ -188,10 +188,10 @@ export class Flex extends Element3D {
 					let alignItems
 					// prettier-ignore
 					switch (this.alignItems) {
-						case 'baseline': alignItems = Align.Baseline; break
+						case 'start': alignItems = Align.FlexStart; break
 						case 'center': alignItems = Align.Center; break
 						case 'end': alignItems = Align.FlexEnd; break
-						case 'start': alignItems = Align.FlexStart; break
+						case 'baseline': alignItems = Align.Baseline; break
 						case 'stretch': alignItems = Align.Stretch; break
 					}
 
@@ -204,11 +204,12 @@ export class Flex extends Element3D {
 					let alignContent
 					// prettier-ignore
 					switch (this.alignContent) {
-						case 'baseline': alignContent = Align.Baseline; break
 						case 'center': alignContent = Align.Center; break
 						case 'end': alignContent = Align.FlexEnd; break
 						case 'start': alignContent = Align.FlexStart; break
-						case 'stretch': alignContent = Align.Stretch; break
+						case 'space-around': alignContent = Align.SpaceAround; break
+						case 'space-between': alignContent = Align.SpaceBetween; break
+						case 'space-evenly': alignContent = Align.SpaceEvenly; break
 					}
 
 					root.setAlignContent(alignContent)
@@ -233,9 +234,9 @@ export class Flex extends Element3D {
 					let justify
 					// prettier-ignore
 					switch (this.justifyContent) {
+							case 'start': justify = Justify.FlexStart; break
 							case 'center': justify = Justify.Center; break
 							case 'end': justify = Justify.FlexEnd; break
-							case 'start': justify = Justify.FlexStart; break
 							case 'space-around': justify = Justify.SpaceAround; break
 							case 'space-between': justify = Justify.SpaceBetween; break
 							case 'space-evenly': justify = Justify.SpaceEvenly; break

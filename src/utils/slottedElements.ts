@@ -1,5 +1,5 @@
 import {createEffect, createMemo, createSignal, onCleanup} from 'solid-js'
-import {arraysEqual} from './arraysEqual.js'
+import {createArrayMemo} from './createArrayMemo.js'
 
 export function slottedElements(slot: HTMLSlotElement | (() => HTMLSlotElement | null | undefined)) {
 	const slotMemo = createMemo(() => (typeof slot === 'function' ? slot() : slot))
@@ -15,14 +15,10 @@ export function slottedElements(slot: HTMLSlotElement | (() => HTMLSlotElement |
 	})
 
 	// TODO return [] if the slot is further assigned to a lower slot?
-	return createMemo(
-		() => {
-			const slot = slotMemo()
-			if (!slot) return []
-			slotchange()
-			return slot.assignedElements({flatten: true})
-		},
-		[],
-		{equals: arraysEqual},
-	)
+	return createArrayMemo(() => {
+		const slot = slotMemo()
+		if (!slot) return []
+		slotchange()
+		return slot.assignedElements({flatten: true})
+	})
 }
