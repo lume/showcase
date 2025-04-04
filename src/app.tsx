@@ -4,7 +4,6 @@ import {createEffect, createMemo, createSignal, onCleanup, onMount, Suspense, un
 import {createMutable} from 'solid-js/store'
 import {Motor, type Scene, type Element3D, type PointLight, RoundedRectangle} from 'lume'
 import {Easing} from '@tweenjs/tween.js'
-import {elementSize} from './utils/elementSize.js'
 import './app.css'
 import './elements/Scroller.js'
 import type {Scroller} from './elements/Scroller.js'
@@ -12,12 +11,17 @@ import './elements/Flex.js'
 import type {Flex, FlexItem} from './elements/Flex.js'
 import './elements/TiltCard.js'
 import {type TiltCard} from './elements/TiltCard.js'
-import {childLumeElements} from './utils/childLumeElements.js'
 import {projects} from './projects.js'
+import {childLumeElements} from './utils/childLumeElements.js'
+import {elementSize} from './utils/elementSize.js'
 import {animateValue} from './utils/animateValue.js'
 import {timeout} from './utils/timeout.js'
 
 const dark = false
+
+// CONTINUE: cherry-pick the "TODO" commit from the
+// "solid-start-inconsistent-config" branch, with the new when() function, and see
+// which build config works.
 
 export default function App() {
 	return (
